@@ -6,14 +6,23 @@ import {
   redirect,
 } from "react-router-dom/";
 import { app as firebaseApp } from "./firebase";
-import { getFirestore, collection, getDocs, addDoc } from "firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+} from "firebase/firestore";
 import "./index.css";
 import App from "./App";
 import Create from "./Create";
 import Edit from "./Edit";
 import ErrorNoNull from "./ErrorNoNull";
-import { v4 as uuidv4 } from 'uuid';
-import Filter from "./Components/Filter";
+import { v4 as uuidv4 } from "uuid";
+import Filter1 from "./Components/Filter";
 
 const db = getFirestore(firebaseApp);
 
@@ -25,7 +34,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/search",
-    element: <Filter />,
+    element: <Filter1 />,
   },
   {
     path: "/",
@@ -56,7 +65,6 @@ const router = createBrowserRouter([
     element: <Create />, // no need to use loader here, rather we need to submit the form
     action: async ({ request }) => {
       try {
-
         // throw new Error("Simulated Firestore error"); // Simulate an error
 
         const recordId = uuidv4(); // generate the userId
@@ -68,42 +76,71 @@ const router = createBrowserRouter([
         // Validate the form data
         if (!name || !url) {
           console.error("name and url are required");
-          return redirect('/errornonull'); 
+          return redirect("/errornonull");
         }
 
         console.log(name, url);
-        
 
         // Add the data to Firestore. Since you've already extracted name and url,
         // there's no need to spread formData again.
-        
+
         const collectionRef = collection(db, "bookmarks");
-        const docRef = await addDoc(collectionRef, {
+        await addDoc(collectionRef, {
           name: name,
           url: url,
           recordId: recordId,
         });
 
-        console.log(docRef);
+        // console.log(docRef);
         return redirect("/");
-
       } catch (error) {
         console.error("Error adding document to Firestore:", error);
         return redirect("/create"); // Redirect back to the form in case of an error.
       }
     },
   },
+
   {
     // Edit page will use loader and form submission, at first, we need to load the data from firestore
-    // and then edit it 
+    // and then edit it
     path: "/edit/:id",
     element: <Edit />,
-    loader: async () => {
-      return {};
+    loader: async ({ params }) => {
+      const id = params.id;
+      const docRef = doc(db, "bookmarks", id);
+      const docSnap = await getDoc(docRef);
+      const data = docSnap.data();
+
+      return {
+        id: id,
+        data: data,
+      };
     },
     action: async ({ request, params }) => {
-      return {};
-   }
+      const id = params.id;
+      const formData = await request.formData();
+      const name = formData.get("name");
+      const url = formData.get("url");
+
+      const docRef = doc(db, "bookmarks", id);
+      await updateDoc(docRef, {
+        name: name,
+        url: url,
+      });
+
+      return redirect("/");
+    },
+  },
+
+  // Delete one document from the 'bookmarks' collection
+  {
+    path: "/delete/:id",
+    action: async ({ params }) => {
+      const id = params.id;
+      const docRef = doc(db, "bookmarks", id);
+      await deleteDoc(docRef);
+      return redirect("/");
+    },
   },
 ]);
 
